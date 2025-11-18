@@ -7,10 +7,6 @@ import chromadb
 from chromadb.utils import embedding_functions
 
 def get_text_splitter(chunk_size: int = 1000, chunk_overlap: int = 200) -> "RecursiveCharacterTextSplitter":
-    if RecursiveCharacterTextSplitter is None:
-        raise RuntimeError(
-            "LangChain text splitter not available. Install with 'pip install langchain langchain-text-splitters'."
-        )
     return RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -24,36 +20,10 @@ def _read_text_file(path: str) -> Optional[str]:
     except Exception:
         return None
 
-def _read_pdf_file(path: str) -> Optional[str]:
-    try:
-        from pypdf import PdfReader  
-    except Exception:
-        return None
-    try:
-        reader = PdfReader(path)
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
-    except Exception:
-        return None
-
-def _read_docx_file(path: str) -> Optional[str]:
-    try:
-        from docx import Document  
-    except Exception:
-        return None
-    try:
-        doc = Document(path)
-        return "\n".join(p.text for p in doc.paragraphs)
-    except Exception:
-        return None
-
 def load_document(path: str) -> Optional[str]:
     ext = os.path.splitext(path)[1].lower()
     if ext in {".txt", ".md", ".markdown", ".rst", ".mdx", ".html", ".htm"}:
         return _read_text_file(path)
-    if ext == ".pdf":
-        return _read_pdf_file(path)
-    if ext == ".docx":
-        return _read_docx_file(path)
     return _read_text_file(path)
 
 def iter_files(root: str, exts: Optional[set] = None) -> Iterable[str]:
@@ -80,10 +50,7 @@ def main():
     persist_dir = os.path.join(base_dir, "chroma_db")
     os.makedirs(persist_dir, exist_ok=True)
 
-    allow_exts = {
-        ".txt", ".md", ".markdown", ".rst", ".mdx", ".html", ".htm",
-        ".pdf", ".docx"
-    }
+    allow_exts = {".txt"}
 
     files = sorted(iter_files(data_dir, allow_exts))
     if not files:
@@ -96,7 +63,6 @@ def main():
     metadatas: List[dict] = []
     ids: List[str] = []
 
-    # Initialize LangChain text splitter (env overrides optional)
     chunk_size = int(os.environ.get("CHUNK_SIZE", "1000"))
     chunk_overlap = int(os.environ.get("CHUNK_OVERLAP", "200"))
     text_splitter = get_text_splitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -105,13 +71,11 @@ def main():
         text = load_document(fpath)
         if not text or not text.strip():
             continue
-        # Use LangChain splitter instead of custom chunk_text
         chunks = text_splitter.split_text(text)
         rel_path = os.path.relpath(fpath, data_dir)
         for idx, chunk in enumerate(chunks):
             documents.append(chunk)
             metadatas.append({"source": rel_path, "chunk_index": idx})
-            # Stable unique id per file+chunk:
             uid = hashlib.md5((rel_path + "::" + str(idx)).encode("utf-8")).hexdigest()
             ids.append(f"{uid}")
 
@@ -120,9 +84,6 @@ def main():
         return
 
     print(f"Prepared {len(documents)} chunks. Initializing Chroma + embeddings...")
-    # Initialize Chroma + Sentence-Transformers embeddings and persist
-
-
 
     embed_model = os.environ.get("EMBED_MODEL", "all-MiniLM-L6-v2")
     embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=embed_model)
