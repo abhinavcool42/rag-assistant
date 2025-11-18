@@ -88,24 +88,10 @@ def main():
     embed_model = os.environ.get("EMBED_MODEL", "all-MiniLM-L6-v2")
     embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=embed_model)
 
-    try:
-        client = chromadb.PersistentClient(path=persist_dir)
-    except TypeError:
-        client = chromadb.Client(settings=chromadb.Settings(chroma_db_impl="duckdb+parquet", persist_directory=persist_dir))
+    client = chromadb.PersistentClient(path=persist_dir)
 
     collection_name = os.environ.get("CHROMA_COLLECTION", "documents")
-    try:
-        collection = client.get_or_create_collection(name=collection_name, embedding_function=embedding_fn)
-    except TypeError:
-        collection = client.get_or_create_collection(name=collection_name)
-
-    if os.environ.get("RESET_COLLECTION", "0") in {"1", "true", "True"}:
-        try:
-            client.delete_collection(collection_name)
-        except Exception:
-            pass
-        collection = client.get_or_create_collection(name=collection_name, embedding_function=embedding_fn)
-        print(f"Reset collection '{collection_name}'.")
+    collection = client.get_or_create_collection(name=collection_name, embedding_function=embedding_fn)
 
     batch_size = int(os.environ.get("BATCH_SIZE", "128"))
     total = len(documents)
@@ -120,11 +106,8 @@ def main():
         if added % (batch_size * 5) == 0 or added == total:
             print(f"Indexed {added}/{total} chunks...")
 
-    try:
-        if hasattr(client, "persist"):
-            client.persist()
-    except Exception:
-        pass
+    if hasattr(client, "persist"):
+        client.persist()
 
     print(f"Done. Persisted {added} chunks to '{persist_dir}' in collection '{collection_name}' using model '{embed_model}'.")
 

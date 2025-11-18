@@ -101,7 +101,9 @@ def query_endpoint():
 
     prompt = f"""
     You are a helpful assistant. Use the provided context to answer the question.
-    If the answer is not in the context, say you don't know.
+    CRITICAL INSTRUCTION: You MUST answer the user's question ONLY using the provided context. 
+    If the answer is not found in the context, you MUST respond only with: 'I do not have enough information in my knowledge base to answer that.' 
+    Do NOT guess or generate information.
 
     Context:
     {context_text}
