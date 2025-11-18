@@ -33,3 +33,6 @@
 - ```POST /api/query```
   - Description: Submits a query to the RAG assistant
   - Body: ```{"query": "What is the project objective?"}```
+
+## Requirements
+- Python 3.11
