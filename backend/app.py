@@ -6,20 +6,33 @@ import requests
 
 app = Flask(__name__)
 
-CHROMA_PATH = "./chroma_db"
-COLLECTION_NAME = "docs_collection"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-OLLAMA_URL = "http://localhost:11434/api/generate"
-LLAMA_MODEL = "llama3.1"
+CHROMA_PATH = os.environ.get("CHROMA_PATH", "./chroma_db")
+COLLECTION_NAME = os.environ.get("CHROMA_COLLECTION", "documents")
+EMBEDDING_MODEL = os.environ.get("EMBED_MODEL", "all-MiniLM-L6-v2")
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:8888/api/generate")
+LLAMA_MODEL = os.environ.get("LLAMA_MODEL", "llama3.1:8b")
 
 embedder = SentenceTransformer(EMBEDDING_MODEL)
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
-try:
-    collection = chroma_client.get_collection(name=COLLECTION_NAME)
-except Exception as e:
-    collection = None
+def _resolve_collection(client, preferred_name: str):
+	# Try preferred, then common fallbacks, else create
+	try:
+		return client.get_collection(name=preferred_name)
+	except Exception:
+		pass
+	for alt in [preferred_name, "documents", "docs_collection"]:
+		try:
+			return client.get_collection(name=alt)
+		except Exception:
+			continue
+	try:
+		return client.get_or_create_collection(name=preferred_name)
+	except Exception:
+		return None
+
+collection = _resolve_collection(chroma_client, COLLECTION_NAME)
 
 def call_ollama(prompt):
     payload = {
@@ -36,30 +49,54 @@ def call_ollama(prompt):
     except requests.exceptions.RequestException as e:
         return f"Error connecting to Ollama: {e}. Is it running?"
 
-@app.route('/api/query', methods=['POST'])
+@app.route('/api/health', methods=['GET'])
+def api_health():
+	return jsonify({
+		"status": "ok",
+		"collection_loaded": bool(collection),
+		"collection_name": getattr(collection, "name", None),
+		"chroma_path": CHROMA_PATH
+	})
+
+@app.route('/', methods=['GET'])
+def root():
+	return jsonify({"ok": True, "try": ["/api/health", "/api/query?query=hello"]})
+
+@app.errorhandler(404)
+def not_found(_e):
+	return jsonify({"error": "Not Found", "hint": "Check /api/health and /api/query"}), 404
+
+@app.route('/api/query', methods=['POST', 'GET'])
 def query_endpoint():
     if not collection:
-        return jsonify({"error": "ChromaDB collection not loaded."}), 500
+        return jsonify({"error": "ChromaDB collection not loaded. Run preprocess.py first or check CHROMA_PATH/COLLECTION envs."}), 500
 
-    data = request.json
-    user_query = data.get('query')
+    if request.method == 'GET':
+        user_query = request.args.get('query', '').strip()
+        n_results = request.args.get('n', os.environ.get("N_RESULTS", "3"))
+    else:
+        data = request.json or {}
+        user_query = (data.get('query') or '').strip()
+        n_results = data.get('n_results', os.environ.get("N_RESULTS", "3"))
 
     if not user_query:
-        return jsonify({"error": "No query provided"}), 400
+        return jsonify({"error": "No query provided. Supply ?query=... or JSON {'query': '...'}"}), 400
+
+    try:
+        n_results = int(n_results)
+    except ValueError:
+        n_results = 3
 
     query_embedding = embedder.encode([user_query]).tolist()
 
     results = collection.query(
         query_embeddings=query_embedding,
-        n_results=3
+        n_results=n_results
     )
 
-    retrieved_docs = results['documents'][0] if results['documents'] else []
-    
-    if not retrieved_docs:
-        context_text = "No relevant context found."
-    else:
-        context_text = "\n\n".join(retrieved_docs)
+    retrieved_docs = results['documents'][0] if results.get('documents') else []
+
+    context_text = "\n\n".join(retrieved_docs) if retrieved_docs else "No relevant context found."
 
     prompt = f"""
     You are a helpful assistant. Use the provided context to answer the question.
@@ -79,7 +116,8 @@ def query_endpoint():
     return jsonify({
         "query": user_query,
         "answer": answer,
-        "retrieved_context": retrieved_docs 
+        "retrieved_context": retrieved_docs,
+        "n_results": n_results
     })
 
 if __name__ == '__main__':
