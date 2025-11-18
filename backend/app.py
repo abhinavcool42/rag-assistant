@@ -18,19 +18,18 @@ embedder = SentenceTransformer(EMBEDDING_MODEL)
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
-def _resolve_collection(client, preferred_name: str):
-	# Try preferred, then common fallbacks, else create
+def _resolve_collection(client, pname: str):
 	try:
-		return client.get_collection(name=preferred_name)
+		return client.get_collection(name=pname)
 	except Exception:
 		pass
-	for alt in [preferred_name, "documents", "docs_collection"]:
+	for alt in [pname, "documents", "docs_collection"]:
 		try:
 			return client.get_collection(name=alt)
 		except Exception:
 			continue
 	try:
-		return client.get_or_create_collection(name=preferred_name)
+		return client.get_or_create_collection(name=pname)
 	except Exception:
 		return None
 

@@ -10,6 +10,7 @@ const el = {
   messages: document.getElementById('messages'),
   form: document.getElementById('chat-form'),
   input: document.getElementById('user-input'),
+  nResults: document.getElementById('n-results'),
   status: document.getElementById('status'),
   send: document.getElementById('send-btn'),
 };
@@ -45,6 +46,7 @@ function addSources(sources) {
 
 function setBusy(busy, msg = '') {
   el.input.disabled = busy;
+  el.nResults.disabled = busy;
   el.send.disabled = busy;
   el.status.textContent = msg;
 }
@@ -54,6 +56,8 @@ el.form.addEventListener('submit', async (e) => {
   const query = el.input.value.trim();
   if (!query) return;
 
+  const nResults = parseInt(el.nResults.value) || 3;
+
   addMessage('user', query);
   el.input.value = '';
   setBusy(true, 'Thinking...');
@@ -62,7 +66,7 @@ el.form.addEventListener('submit', async (e) => {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, n_results: nResults }),
     });
 
     if (!res.ok) {

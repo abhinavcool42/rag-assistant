@@ -22,7 +22,7 @@ def _read_text_file(path: str) -> Optional[str]:
 
 def load_document(path: str) -> Optional[str]:
     ext = os.path.splitext(path)[1].lower()
-    if ext in {".txt", ".md", ".markdown", ".rst", ".mdx", ".html", ".htm"}:
+    if ext in {".txt"}:
         return _read_text_file(path)
     return _read_text_file(path)
 
@@ -130,5 +130,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
