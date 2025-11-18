@@ -23,6 +23,7 @@
   - Store: save them all into your ChromaDB
 
 ## Additional features to implement
+- More document formats (excel, word, json, csv etc)
 - Streaming answer
 - Allowing Users to submit documents
 - Chat history
