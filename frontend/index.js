@@ -1,71 +1,90 @@
-const axios = require('axios');
-const prompts = require('prompts');
-const ora = require('ora');
-const chalk = require('chalk');
-
-// Ensure this URL matches your running Flask backend
-const API_URL = 'http://127.0.0.1:5000/api/query';
-
-async function main() {
-    // Clear the terminal screen for a fresh start
-    console.clear();
-    console.log(chalk.cyan.bold('🤖 RAG AI Assistant CLI'));
-    console.log(chalk.gray('Type "exit" to quit.\n'));
-
-    while (true) {
-        // 1. Get User Input
-        const response = await prompts({
-            type: 'text',
-            name: 'query',
-            message: chalk.yellow('You:'),
-            validate: value => value.length > 0 ? true : 'Please enter a question.'
-        });
-
-        // Handle exit command
-        if (!response.query || response.query.toLowerCase() === 'exit') {
-            console.log(chalk.green('\nGoodbye! 👋'));
-            break;
-        }
-
-        // 2. Show loading spinner while waiting for backend
-        const spinner = ora('Thinking...').start();
-
-        try {
-            // 3. Send POST request to Python Backend
-            const result = await axios.post(API_URL, {
-                query: response.query
-            });
-
-            spinner.stop();
-
-            // 4. Extract data from response
-            const answer = result.data.answer;
-            const sources = result.data.retrieved_context;
-
-            // 5. Display Answer
-            console.log('\n' + chalk.blue.bold('AI: ') + answer + '\n');
-
-            // 6. Display Sources (if they exist)
-            if (sources && sources.length > 0) {
-                console.log(chalk.gray('--- Sources ---'));
-                sources.forEach((src, i) => {
-                    // Clean up newlines for better CLI display
-                    const snippet = src.replace(/\n/g, ' ').substring(0, 100) + '...';
-                    console.log(chalk.dim(`[${i + 1}] ${snippet}`));
-                });
-                console.log(chalk.gray('---------------\n'));
-            }
-
-        } catch (error) {
-            spinner.fail('Error');
-            if (error.code === 'ECONNREFUSED') {
-                console.log(chalk.red('Could not connect to backend. Is "app.py" running on port 5000?'));
-            } else {
-                console.log(chalk.red(`Server Error: ${error.message}`));
-            }
-            console.log('\n');
-        }
-    }
+// If executed with Node, exit with a helpful message.
+if (typeof document === 'undefined') {
+  console.error('This script is meant to run in the browser. Open frontend/index.html in a browser.');
+  if (typeof process !== 'undefined' && process.exit) process.exit(1);
 }
 
-main();
+const API_URL = 'http://127.0.0.1:5000/api/query';
+
+const el = {
+  messages: document.getElementById('messages'),
+  form: document.getElementById('chat-form'),
+  input: document.getElementById('user-input'),
+  status: document.getElementById('status'),
+  send: document.getElementById('send-btn'),
+};
+
+function scrollToBottom() {
+  el.messages.scrollTop = el.messages.scrollHeight;
+}
+
+function addMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${role === 'user' ? 'user' : 'ai'}`;
+  div.textContent = text;
+  el.messages.appendChild(div);
+  scrollToBottom();
+  return div;
+}
+
+function addSources(sources) {
+  if (!Array.isArray(sources) || sources.length === 0) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'sources';
+  wrap.innerHTML = '<strong>Sources</strong>';
+  sources.forEach((src, i) => {
+    const item = document.createElement('div');
+    item.className = 'item';
+    const snippet = String(src).replace(/\n/g, ' ').slice(0, 200) + (String(src).length > 200 ? '…' : '');
+    item.textContent = `[${i + 1}] ${snippet}`;
+    wrap.appendChild(item);
+  });
+  el.messages.appendChild(wrap);
+  scrollToBottom();
+}
+
+function setBusy(busy, msg = '') {
+  el.input.disabled = busy;
+  el.send.disabled = busy;
+  el.status.textContent = msg;
+}
+
+el.form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const query = el.input.value.trim();
+  if (!query) return;
+
+  addMessage('user', query);
+  el.input.value = '';
+  setBusy(true, 'Thinking...');
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`);
+    }
+
+    const data = await res.json();
+    const answer = data?.answer ?? '(no answer)';
+    addMessage('ai', answer);
+
+    const sources = data?.retrieved_context;
+    if (Array.isArray(sources) && sources.length > 0) {
+      addSources(sources);
+    }
+  } catch (err) {
+    addMessage('ai', `Error: ${err.message}`);
+  } finally {
+    setBusy(false, '');
+    el.input.focus();
+  }
+});
+
+// Optional welcome message
+addMessage('ai', 'Hi! Ask me anything. Type your question below and press Enter.');

@@ -1,10 +1,12 @@
 import os
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import chromadb
 from sentence_transformers import SentenceTransformer
 import requests
 
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 CHROMA_PATH = os.environ.get("CHROMA_PATH", "./chroma_db")
 COLLECTION_NAME = os.environ.get("CHROMA_COLLECTION", "documents")

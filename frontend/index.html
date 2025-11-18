@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RAG AI Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light dark; --bg:#0b0c10; --panel:#1f2833; --acc:#66fcf1; --text:#c5c6c7; --ai:#45a29e; --user:#66fcf1; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .app { max-width: 800px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; min-height: 100vh; }
+    h1 { margin: 8px 0 12px; font-size: 20px; color: var(--acc); }
+    .panel { background: var(--panel); border-radius: 12px; padding: 12px; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .messages { overflow: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; padding-right: 4px; }
+    .msg { max-width: 85%; padding: 10px 12px; border-radius: 10px; white-space: pre-wrap; word-wrap: break-word; }
+    .msg.user { align-self: flex-end; background: rgba(102,252,241,0.12); border: 1px solid rgba(102,252,241,0.35); color: var(--user); }
+    .msg.ai { align-self: flex-start; background: rgba(69,162,158,0.12); border: 1px solid rgba(69,162,158,0.35); color: #e8f6f5; }
+    .sources { font-size: 12px; opacity: 0.9; margin-top: 6px; }
+    .sources .item { padding: 6px 8px; border-left: 3px solid var(--ai); margin: 6px 0; background: rgba(255,255,255,0.04); border-radius: 6px; }
+    form { display: flex; gap: 8px; margin-top: 12px; }
+    input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #3a4450; background: #13161a; color: #fff; }
+    button { padding: 0 16px; border-radius: 8px; border: 0; background: var(--acc); color: #000; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .status { font-size: 12px; opacity: 0.8; margin-top: 6px; min-height: 16px; }
+    .footer { font-size: 12px; opacity: 0.7; margin-top: 10px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>🤖 RAG AI Assistant</h1>
+    <div class="panel">
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <div class="status" id="status"></div>
+      <form id="chat-form" autocomplete="off">
+        <input id="user-input" type="text" placeholder="Ask a question (press Enter)..." aria-label="Your question" />
+        <button id="send-btn" type="submit">Send</button>
+      </form>
+    </div>
+    <div class="footer">Backend: http://127.0.0.1:5000/api/query</div>
+  </div>
+  <script defer src="./index.js"></script>
+</body>
+</html>
