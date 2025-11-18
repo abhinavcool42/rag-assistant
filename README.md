@@ -24,6 +24,7 @@
 
 ## Additional features to implement
 - More document formats (excel, word, json, csv etc)
+- Web scraping
 - Streaming answer
 - Allowing Users to submit documents
 - Chat history
